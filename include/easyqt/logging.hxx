@@ -54,7 +54,7 @@ namespace easyqt {
 				_level = getLogLevelForString(levelName);
 			}
 			void setLogLevel(char* levelName) {
-				_level = getLogLevelForString({levelName});
+				_level = getLogLevelForString(levelName);
 			}
 		
 		private:

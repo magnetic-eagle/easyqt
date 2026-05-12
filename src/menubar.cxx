@@ -6,7 +6,6 @@
 
 #include "commands.hxx"
 #include "menubar.hxx"
-#include "uiloader.hxx"
 #include "utils.hxx"
 #include "logging.hxx"
 

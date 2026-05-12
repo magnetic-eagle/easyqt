@@ -5,7 +5,6 @@
 
 #include <QMenuBar>
 #include "singleton.hxx"
-#include "commands.hxx"
 
 namespace easyqt {
 	class MenuBar: public Singleton<MenuBar, QMenuBar> {

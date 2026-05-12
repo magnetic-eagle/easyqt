@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.5)
 
 project(easyqt
 	VERSION 1.0.0
@@ -15,6 +15,7 @@ set(CMAKE_AUTOUIC ON)
 set(BUILD_SHARED_LIBS ON)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_TESTING "Whether to build tests" ON)
 
