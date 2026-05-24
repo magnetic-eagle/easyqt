@@ -4,16 +4,17 @@
 #include "command.hxx"
 
 namespace easyqt {
-	std::shared_ptr<Command> getCommand(std::string name);
-	void addCommand(std::shared_ptr<Command> command);
+	CommandPtr getCommand(std::string name);
+	void addCommand(CommandPtr command);
 	inline void addCommands(CommandPtrVector commands) {
 		for (CommandPtr command: commands) {
 			addCommand(command);
 		}
 	}
 	void removeCommand(std::string name);
-	inline void removeCommand(std::shared_ptr<Command> command) { removeCommand(command->name()); };
+	inline void removeCommand(CommandPtr command) { removeCommand(command->name()); };
 
+	EASYQTCOMMAND_GEN_DEF(CommandShowSettingsDialog)
 	EASYQTCOMMAND_GEN_DEF(CommandQuit)
 }
 #endif

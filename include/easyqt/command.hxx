@@ -1,30 +1,28 @@
 #ifndef EASYQT_COMMAND_HXX
 #define EASYQT_COMMAND_HXX
 
-#include <memory>
 #include <vector>
 
 #include <QObject>
 
-#include <singleton.hxx>
+#include "singleton.hxx"
 
 namespace easyqt {
 	class Command: public QObject {
 		Q_OBJECT
 		public:
-			Command() {};
 			virtual void execute() {};
 			virtual inline const std::string& name() { 
 				static const std::string name = "";
 				return name;
 			};
 	};
-	using CommandPtr = std::shared_ptr<Command>;
+	using CommandPtr = Command*;
 	using CommandPtrVector = std::vector<CommandPtr>;
 }
 
 #define EASYQTCOMMAND_GEN_DEF(classname) \
-class classname: public SmartPtrSingleton<classname, easyqt::Command> { \
+class classname: public easyqt::Command, public easyqt::Singleton<classname> { \
 	public: \
 		void execute() override; \
 		inline const std::string& name() override; \

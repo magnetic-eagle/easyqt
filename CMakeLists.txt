@@ -19,8 +19,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_TESTING "Whether to build tests" ON)
 
+find_package(PkgConfig)
 find_package(Qt5 COMPONENTS Widgets UiTools REQUIRED)
 add_subdirectory(3rdparty)
+
 add_subdirectory(include)
 add_subdirectory(src)
 if(ENABLE_TESTING)

@@ -6,6 +6,7 @@ add_library(easyqt
 	logging.cxx
 	menubar.cxx
 	scrollarea.cxx
+	settingsdialog.cxx
 	uiloader.cxx
 	utils.cxx
 )
@@ -16,7 +17,6 @@ target_link_libraries(
 	Qt5::Widgets
 	Qt5::UiTools
 	pugixml::pugixml
-	singleton++
 )
 
 target_include_directories(

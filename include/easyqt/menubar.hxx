@@ -4,13 +4,14 @@
 #include <string>
 
 #include <QMenuBar>
-#include "singleton.hxx"
+
+#include "object.hxx"
 
 namespace easyqt {
-	class MenuBar: public Singleton<MenuBar, QMenuBar> {
+	class MenuBar: public QMenuBar, public Object {
 		Q_OBJECT
 		public:
-			MenuBar(std::string name = "") {};
+			MenuBar(const std::string& name = ""){};
 			void loadFromFile(std::string file);
 	};
 }
