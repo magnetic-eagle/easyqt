@@ -4,6 +4,7 @@ set(MOC_HEADERS
 	flowlayout.hxx
 	menubar.hxx
 	scrollarea.hxx
+	settingsdialog.hxx
 	uiloader.hxx
 )
 list(TRANSFORM MOC_HEADERS PREPEND "${CMAKE_CURRENT_LIST_DIR}/")

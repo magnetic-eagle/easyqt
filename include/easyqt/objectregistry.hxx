@@ -31,6 +31,7 @@ namespace easyqt {
 				if (!objects.contains(name)) {
 					objects[name] = new T;
 					objects[name]->setName(name);
+					objects[name]->init();
 				}
 				return objects[name];
 			}

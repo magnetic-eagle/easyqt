@@ -10,12 +10,13 @@
 #include "object.hxx"
 
 namespace easyqt {
-        class SettingsDialog: public QDialog, public Object {
+        class SettingsDialog: public Object<QDialog> {
+                Q_OBJECT
                 public:
                         void loadFromFile(std::filesystem::path path);
                 
                 protected:
-                        virtual void initImpl() override;
+                        void initImpl() override;
                 
                 private:
                         QTabWidget* _settingsTabs;

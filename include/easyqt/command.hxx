@@ -5,10 +5,10 @@
 
 #include <QObject>
 
-#include "singleton.hxx"
+#include "object.hxx"
 
 namespace easyqt {
-	class Command: public QObject {
+	class Command: public Object<QObject> {
 		Q_OBJECT
 		public:
 			virtual void execute() {};
@@ -22,7 +22,7 @@ namespace easyqt {
 }
 
 #define EASYQTCOMMAND_GEN_DEF(classname) \
-class classname: public easyqt::Command, public easyqt::Singleton<classname> { \
+class classname: public easyqt::Command { \
 	public: \
 		void execute() override; \
 		inline const std::string& name() override; \

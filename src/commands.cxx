@@ -12,8 +12,8 @@ namespace easyqt {
 	EASYQTCOMMAND_GEN_IMPL(CommandQuit, "quit", Application::instance()->exit())
 	
 	static std::map<std::string, CommandPtr > _commandMap = {
-		{"show", CommandShowSettingsDialog::instance()},
-		{"quit", CommandQuit::instance()},
+		{"show", new CommandShowSettingsDialog()},
+		{"quit", new CommandQuit()},
 	};
 
 	CommandPtr getCommand(std::string name) {

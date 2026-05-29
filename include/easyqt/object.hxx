@@ -1,15 +1,20 @@
 #pragma once
 
-#include "objectregistry.hxx"
 #include <string>
 
 #include <QObject>
 
+#include "objectregistry.hxx"
+
 namespace easyqt {
-	class Object: public QObject {
-		Q_OBJECT
+	template<typename Base>
+	class Object: public Base {
 		public:
 			friend ObjectRegistry;
+
+			template<typename... Args>
+			Object(Args&&... args): Base(std::forward<Args>(args)...) {};
+			
 			bool init() {
 				if (!_inited) {
 					initImpl();
@@ -23,7 +28,7 @@ namespace easyqt {
 			}
 		
 		protected:
-			virtual void initImpl();
+			virtual void initImpl() {};
 			bool setName(const std::string& name) {
 				if (!_inited) {
 					_name = name;
@@ -34,7 +39,7 @@ namespace easyqt {
 			}
 					
 		private:
-			bool _inited;
+			bool _inited = false;
 			std::string _name = "";
 	};
 }
