@@ -6,11 +6,11 @@
 #include <string>
 #include <sstream>
 
-#include "singleton.hxx"
+#include "object.hxx"
 #include "utils.hxx"
 
 namespace easyqt {
-	class Logger: public Singleton<Logger> {
+	class Logger: public Object<> {
 		public:
 			enum class LogLevel: short {
 				DEBUG = 0,
@@ -26,7 +26,7 @@ namespace easyqt {
 			Logger() {};
 			
 			template<typename T>
-			void log(LogLevel level, const T& msg) {
+			void log(const T& msg, LogLevel level = LogLevel::UNKNOWN) {
 				if (level >= _level) {
 					std::ostringstream sstream;
 					sstream << "[" << level << "] " << strftime(std::time(nullptr), "%T") << " " << msg << std::endl;
@@ -74,7 +74,7 @@ namespace std {
 		std::stringstream ss; \
 		ss << expr; \
 		std::string str = ss.str(); \
-		easyqt::Logger::instance()->log(easyqt::Logger::LogLevel::level, ss.str()); \
+		easyqt::ObjectRegistry::get<easyqt::Logger>()->log(ss.str(), easyqt::Logger::LogLevel::level); \
 	}
 
 #endif

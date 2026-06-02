@@ -2,15 +2,18 @@
 
 #include <string>
 
-#include <QObject>
-
 #include "objectregistry.hxx"
 
 namespace easyqt {
-	template<typename Base>
+	class __DefaultBase {
+		public:
+			__DefaultBase() = default;
+	};
+
+	template<typename Base = __DefaultBase>
 	class Object: public Base {
 		public:
-			friend ObjectRegistry;
+			friend class ObjectRegistry;
 
 			template<typename... Args>
 			Object(Args&&... args): Base(std::forward<Args>(args)...) {};
@@ -18,12 +21,13 @@ namespace easyqt {
 			bool init() {
 				if (!_inited) {
 					initImpl();
+					_inited = true;
 					return true;
 				} else {
 					return false;
 				}
 			}
-			const std::string& name() {
+			const std::string& name() const {
 				return _name;
 			}
 		

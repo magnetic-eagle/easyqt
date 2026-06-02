@@ -12,7 +12,7 @@ namespace easyqt {
 	EASYQTCOMMAND_GEN_IMPL(CommandQuit, "quit", Application::instance()->exit())
 	
 	static std::map<std::string, CommandPtr > _commandMap = {
-		{"show", new CommandShowSettingsDialog()},
+		{"show-settings-dialog", new CommandShowSettingsDialog()},
 		{"quit", new CommandQuit()},
 	};
 

@@ -18,6 +18,9 @@ namespace easyqt {
                 protected:
                         void initImpl() override;
                 
+                protected slots:
+                        void onClicked(QAbstractButton* button);
+                
                 private:
                         QTabWidget* _settingsTabs;
                         QVBoxLayout* _layout;
