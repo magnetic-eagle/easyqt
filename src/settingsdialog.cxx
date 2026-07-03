@@ -5,7 +5,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 
-#include <easyqt/settingsdialog.hxx>
+#include "settingsdialog.hxx"
 
 enum class SettingType {
 	Bool = 0,
@@ -18,7 +18,6 @@ enum class SettingType {
 
 template<typename DataType>
 class Setting: public QObject {
-	Q_OBJECT
 	public:
 		friend class SettingsPage;
 
@@ -65,7 +64,6 @@ class Setting: public QObject {
 };
 
 class BoolSetting: public Setting<bool> {
-	Q_OBJECT
 	protected:
 		void createWidgets(QGridLayout& layout) {
 
