@@ -15,9 +15,11 @@ namespace easyqt {
 		public:
 			friend class ObjectRegistry;
 
-			template<typename... Args>
-			Object(Args&&... args): Base(std::forward<Args>(args)...) {};
-			
+			using Base::Base;
+
+			Object(const Object&) = delete;
+			Object& operator=(const Object&) = delete;
+
 			bool init() {
 				if (!_inited) {
 					initImpl();

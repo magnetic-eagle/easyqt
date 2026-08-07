@@ -14,8 +14,8 @@ add_library(easyqt::easyqt ALIAS easyqt)
 target_link_libraries(
 	easyqt
 	PUBLIC
-	Qt5::Widgets
-	Qt5::UiTools
+	Qt6::Widgets
+	Qt6::UiTools
 	pugixml::pugixml
 )
 
