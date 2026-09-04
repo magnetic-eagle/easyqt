@@ -17,6 +17,14 @@ set(BUILD_SHARED_LIBS ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_CXX_FLAGS_DEBUGASAN
+    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined -fno-omit-frame-pointer -g"
+)
+
+set(CMAKE_EXE_LINKER_FLAGS_DEBUGASAN
+    "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address,undefined"
+)
+
 option(ENABLE_TESTING "Whether to build tests" ON)
 
 find_package(PkgConfig)
