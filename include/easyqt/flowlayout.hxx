@@ -1,7 +1,6 @@
 #ifndef EASYQT_FLOWLAYOUT_H
 #define EASYQT_FLOWLAYOUT_H
 
-#include <qobjectdefs.h>
 #include <vector>
 
 #include <QLayout>
@@ -17,6 +16,14 @@ namespace easyqt {
 			~FlowLayout();
 
 			void addItem(QLayoutItem* item) override;
+			void setGeometry(const QRect& rect) override;
+			QLayoutItem* takeAt(int index) override;
+
+			void setHorizontalSpacing(int spacing) { _hSpace = spacing; }
+			void setVerticalSpacing(int spacing) { _vSpace = spacing; }
+			void setSpacing(int spacing) override { _hSpace = _vSpace = spacing; }
+			void setMargin(int margin) { setContentsMargins(margin, margin, margin, margin); }
+
 			int horizontalSpacing() const;
 			int verticalSpacing() const;
 			Qt::Orientations expandingDirections() const override;
@@ -25,15 +32,14 @@ namespace easyqt {
 			int count() const override;
 			QLayoutItem* itemAt(int index) const override;
 			QSize minimumSize() const override;
-			void setGeometry(const QRect& rect) override;
 			QSize sizeHint() const override;
-			QLayoutItem* takeAt(int index) override;
-			inline size_t row(size_t index) {
+
+			inline size_t row(size_t index) const {
 				if (index < 0 || index >= _itemList.size()) {
 					return -1;
 				}
 				size_t row = -1;
-				for (size_t rowLength: _columns) {
+				for (size_t rowLength: _rowLengths) {
 					index -= rowLength;
 					row += 1;
 					if (index < 0) {
@@ -42,10 +48,15 @@ namespace easyqt {
 				}
 				return row;
 			}
-			inline size_t row(QLayoutItem* item) {
-				return row(_itemList.indexOf(item));
+			inline size_t row(QLayoutItem* item) const {
+				const auto& it = std::find(_itemList.begin(), _itemList.end(), item);
+				if (it != _itemList.end()) {
+					return row(std::distance(_itemList.begin(), it));
+				} else {
+					return -1;
+				}
 			}
-			inline size_t row(QWidget* widget) {
+			inline size_t row(QWidget* widget) const {
 				for (QLayoutItem* item: _itemList) {
 					if (item->widget() == widget) {
 						return row(item);
@@ -53,18 +64,19 @@ namespace easyqt {
 				}
 				return -1;
 			}
-			inline size_t rows() { return _rows; };
-			inline size_t columns(size_t row = 0) { return _columns[row]; };
+			inline size_t rows() const { return _rows; };
+			inline size_t columns(size_t row = 0) const { return _rowLengths[row]; };
 
-		private:
-			int doLayout(const QRect &rect, bool testOnly) const;
+		protected:
+			virtual int doLayout(const QRect &rect, bool testOnly) const;
 			int smartSpacing(QStyle::PixelMetric pm) const;
 
-			QList<QLayoutItem*> _itemList;
-			int _hSpace;
-			int _vSpace;
-			mutable size_t _rows;
-			mutable std::vector<size_t> _columns;
+		private:
+			std::vector<QLayoutItem*> _itemList;
+			int _hSpace = 0;
+			int _vSpace = 0;
+			mutable unsigned int _rows = 0;
+			mutable std::vector<unsigned int> _rowLengths;
 	};
 }
 

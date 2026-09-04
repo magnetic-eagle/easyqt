@@ -23,7 +23,7 @@ namespace easyqt {
 	}
 
 	void FlowLayout::addItem(QLayoutItem* item) {
-		_itemList.append(item);
+		_itemList.push_back(item);
 	}
 
 	int FlowLayout::horizontalSpacing() const {
@@ -47,12 +47,18 @@ namespace easyqt {
 	}
 
 	QLayoutItem* FlowLayout::itemAt(int index) const {
-		return _itemList.value(index);
+		if (index >= _itemList.size()) {
+			return nullptr;
+		}
+		return _itemList.at(index);
 	}
 
 	QLayoutItem* FlowLayout::takeAt(int index) {
-		if (index >= 0 && index < _itemList.size())
-			return _itemList.takeAt(index);
+		if (index >= 0 && index < _itemList.size()) {
+			QLayoutItem* item = std::move(_itemList.at(index));
+			_itemList.erase(_itemList.begin() + index);
+			return item;
+		}
 		return nullptr;
 	}
 
@@ -80,8 +86,9 @@ namespace easyqt {
 
 	QSize FlowLayout::minimumSize() const {
 		QSize size;
-		for (const QLayoutItem* item: std::as_const(_itemList))
+		for (const QLayoutItem* item: std::as_const(_itemList)) {
 			size = size.expandedTo(item->minimumSize());
+		}
 
 		const QMargins margins = contentsMargins();
 		size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom());
@@ -97,7 +104,7 @@ namespace easyqt {
 		int lineHeight = 0;
 		
 		_rows = (size_t)!_itemList.empty();
-		_columns.clear();
+		_rowLengths.clear();
 		int columns = 0;
 		
 		for (QLayoutItem* item: std::as_const(_itemList)) {
@@ -116,7 +123,7 @@ namespace easyqt {
 			
 			int nextX = x + item->sizeHint().width() + spaceX;
 			if (nextX - spaceX > effectiveRect.right() && lineHeight > 0) {
-				_columns.push_back(columns);
+				_rowLengths.push_back(columns);
 				columns = 0;
 				x = effectiveRect.x();
 				y = y + lineHeight + spaceY;
