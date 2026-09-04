@@ -1,9 +1,9 @@
+#include <stdexcept>
+
 #include <QMargins>
 #include <QRect>
 #include <QSize>
-#include <stdexcept>
 
-#include "logging.hxx"
 #include "viewedflowlayout.hxx"
 
 namespace easyqt {
