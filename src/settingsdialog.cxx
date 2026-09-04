@@ -1,3 +1,7 @@
+#include <filesystem>
+#include <qcheckbox.h>
+#include <qobject.h>
+#include <qwidget.h>
 #include <stdexcept>
 #include <string>
 
@@ -115,6 +119,11 @@ class Setting: public SettingBase {
 		DataType defaultValue() const { return _defaultValue; }
 		DataType savedValue() const { return _savedValue; }
 
+		virtual QWidget* createWidget() override {
+			LOG(WARNING, "Cannot create setting widget for type '" << easyqt::typeName<DataType>() << "': not implemented");
+			return nullptr;
+		};
+
 	signals:
 		void changed(const std::string& name);
 
@@ -122,90 +131,53 @@ class Setting: public SettingBase {
 		DataType _defaultValue, _currentValue, _savedValue;
 };
 
-class BoolSetting: public Setting<bool> {
-	public:
-		using Setting::Setting;
+template<>
+QWidget* Setting<bool>::createWidget() {
+	QCheckBox* widget = new QCheckBox();
+	widget->setChecked(_savedValue);
 
-		virtual QWidget* createWidget() override {
-			QCheckBox* widget = new QCheckBox();
-			widget->setChecked(_savedValue);
+	return widget;
+}
 
-			return widget;
-		}
-};
+template<>
+QWidget* Setting<int>::createWidget() {
+	QSpinBox* widget = new QSpinBox();
+	widget->setValue(_savedValue);
 
-class IntSetting: public Setting<int> {
-	public:
-		using Setting::Setting;
+	return widget;
+}
 
-		virtual QWidget* createWidget() override {
-			QSpinBox* widget = new QSpinBox();
-			widget->setValue(_savedValue);
+template<>
+QWidget* Setting<double>::createWidget() {
+	QDoubleSpinBox* widget = new QDoubleSpinBox();
+	widget->setValue(_savedValue);
 
-			return widget;
-		}
-};
+	return widget;
+}
 
-class DoubleSetting: public Setting<double> {
-	public:
-		using Setting::Setting;
+template<>
+QWidget* Setting<std::string>::createWidget() {
+	QLineEdit* widget = new QLineEdit();
+	widget->setText(_savedValue.c_str());
 
-		virtual QWidget* createWidget() override {
-			QDoubleSpinBox* widget = new QDoubleSpinBox();
-			widget->setValue(_savedValue);
+	return widget;
+}
 
-			return widget;
-		}
-};
+template<>
+QWidget* Setting<std::filesystem::path>::createWidget() {
+	QPushButton* widget = new QPushButton();
+	widget->setText(_savedValue.c_str());
 
-class StringSetting: public Setting<std::string> {
-	public:
-		using Setting::Setting;
+	return widget;
+}
 
-		virtual QWidget* createWidget() override {
-			QLineEdit* widget = new QLineEdit();
-			widget->setText(_savedValue.c_str());
+template<>
+QWidget* Setting<std::vector<std::filesystem::path> >::createWidget() {
+	QListWidget* widget = new QListWidget();
+	//widget->setText(_savedValue.c_str());
 
-			return widget;
-		}
-};
-
-class PathSetting: public Setting<std::filesystem::path> {
-	public:
-		using Setting::Setting;
-
-		virtual QWidget* createWidget() override {
-			QPushButton* widget = new QPushButton();
-			widget->setText(_savedValue.c_str());
-
-			return widget;
-		}
-};
-
-class PathListSetting: public Setting<std::vector<std::filesystem::path> > {
-	public:
-		using Setting::Setting;
-
-		virtual QWidget* createWidget() override {
-			QListWidget* widget = new QListWidget();
-			//widget->setText(_savedValue.c_str());
-
-			return widget;
-		}
-};
-
-
-#define GEN_SETTINGSPAGE_ADDSETTING(ValueType, SettingClass) \
-		void addSetting( \
-			const std::string& name, const std::string& label, \
-			SettingType type, SettingLevel level, ValueType defaultValue, pugi::xml_node node \
-		) { \
-			std::shared_ptr<SettingClass> setting = std::make_shared<SettingClass>(name, label, type, level, defaultValue, node); \
-			_settings.push_back(setting); \
-			_lastrow += 1; \
-			_layout.addWidget(new QLabel(label.c_str()), _lastrow, 0, Qt::AlignTop); \
-			_layout.addWidget(setting->createWidget(), _lastrow, 1, Qt::AlignTop); \
-		} \
+	return widget;
+}
 
 class SettingsPage: public QScrollArea {
 	public:
@@ -222,19 +194,17 @@ class SettingsPage: public QScrollArea {
 		const std::string& name() const { return _name; }
 		const std::string& label() const { return _label; }
 
-		GEN_SETTINGSPAGE_ADDSETTING(bool, BoolSetting)
-		GEN_SETTINGSPAGE_ADDSETTING(int, IntSetting)
-		GEN_SETTINGSPAGE_ADDSETTING(double, DoubleSetting)
-		GEN_SETTINGSPAGE_ADDSETTING(std::string, StringSetting)
-		GEN_SETTINGSPAGE_ADDSETTING(std::filesystem::path, PathSetting)
-		GEN_SETTINGSPAGE_ADDSETTING(std::vector<std::filesystem::path>, PathListSetting)
 
-		template<typename DataType>
+		template<typename ValueType>
 		void addSetting(
 			const std::string& name, const std::string& label,
-			SettingType type, SettingLevel level, DataType defaultValue, pugi::xml_node node
+			SettingType type, SettingLevel level, ValueType defaultValue, pugi::xml_node node
 		) {
-			LOG(WARNING, "Cannot create setting widget for type '" << easyqt::typeName<DataType>() << "': not implemented");
+			std::shared_ptr<Setting<ValueType> > setting = std::make_shared<Setting<ValueType> >(name, label, type, level, defaultValue, node);
+			_settings.push_back(setting);
+			_lastrow += 1;
+			_layout.addWidget(new QLabel(label.c_str()), _lastrow, 0, Qt::AlignTop);
+			_layout.addWidget(setting->createWidget(), _lastrow, 1, Qt::AlignTop);
 		}
 	
 	private:
