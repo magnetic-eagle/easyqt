@@ -1,6 +1,7 @@
 set(MOC_HEADERS
 	application.hxx
 	command.hxx
+	viewedflowlayout.hxx
 	flowlayout.hxx
 	menubar.hxx
 	scrollarea.hxx
