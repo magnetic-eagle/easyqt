@@ -9,6 +9,7 @@ namespace easyqt {
 		
 		public:
 			QPoint scrollPos();
+			void ensureRectVisible(const QRect& rect, int xmargin = 50, int ymargin = 50);
 	};
 }
 
