@@ -6,6 +6,7 @@ add_library(easyqt
 	flowlayout.cxx
 	logging.cxx
 	menubar.cxx
+	pathentry.cxx
 	scrollarea.cxx
 	settingsdialog.cxx
 	uiloader.cxx

@@ -4,6 +4,7 @@ set(MOC_HEADERS
 	viewedflowlayout.hxx
 	flowlayout.hxx
 	menubar.hxx
+	pathentry.hxx
 	scrollarea.hxx
 	settingsdialog.hxx
 	uiloader.hxx
