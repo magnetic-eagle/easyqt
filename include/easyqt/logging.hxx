@@ -72,7 +72,7 @@ namespace std {
 #define LOG(level, expr) \
 	{ \
 		std::stringstream ss; \
-		ss << expr; \
+		ss << std::boolalpha << expr; \
 		std::string str = ss.str(); \
 		easyqt::ObjectRegistry::get<easyqt::Logger>()->log(ss.str(), easyqt::Logger::LogLevel::level); \
 	}
