@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 project(easyqt
 	VERSION 1.0.0
@@ -7,7 +7,7 @@ project(easyqt
 )
 include(GNUInstallDirs)
 include(CTest)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -31,6 +31,7 @@ find_package(PkgConfig)
 find_package(Qt6 COMPONENTS Widgets UiTools REQUIRED)
 add_subdirectory(3rdparty)
 
+add_subdirectory(data)
 add_subdirectory(include)
 add_subdirectory(src)
 if(ENABLE_TESTING)

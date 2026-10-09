@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+	<!-- ==================== Basic types ==================== -->
+
+	<xs:simpleType name="ConfigLevel">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="basic"/>
+			<xs:enumeration value="advanced"/>
+			<xs:enumeration value="developer"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- ==================== Type-specific configs ==================== -->
+
+	<xs:complexType name="boolConfig">
+		<xs:sequence>
+			<xs:element name="default" type="xs:boolean"/>
+			<xs:element name="value" type="xs:boolean" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="intConfig">
+		<xs:sequence>
+			<xs:element name="default" type="xs:int"/>
+			<xs:element name="value" type="xs:int" minOccurs="0"/>
+			<xs:element name="min" type="xs:int" minOccurs="0"/>
+			<xs:element name="max" type="xs:int" minOccurs="0"/>
+			<xs:element name="step" type="xs:int" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="doubleConfig">
+		<xs:sequence>
+			<xs:element name="default" type="xs:double"/>
+			<xs:element name="value" type="xs:double" minOccurs="0"/>
+			<xs:element name="min" type="xs:double" minOccurs="0"/>
+			<xs:element name="max" type="xs:double" minOccurs="0"/>
+			<xs:element name="step" type="xs:double" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="stringConfig">
+		<xs:sequence>
+			<xs:element name="default" type="xs:string"/>
+			<xs:element name="value" type="xs:string" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="pathConfig">
+		<xs:sequence>
+			<xs:element name="default" type="xs:string"/>
+			<xs:element name="value" type="xs:string" minOccurs="0"/>
+
+			<xs:element name="path-type">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="file"/>
+						<xs:enumeration value="directory"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:element name="settings">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="category" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="name" type="xs:string"/>
+							<xs:element name="label" type="xs:string"/>
+
+							<xs:element name="setting" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:sequence>
+
+										<xs:element name="name" type="xs:string"/>
+										<xs:element name="label" type="xs:string"/>
+										<xs:element name="level" type="ConfigLevel"/>
+
+										<xs:choice>
+											<xs:element name="bool"	type="boolConfig"/>
+											<xs:element name="int" type="intConfig"/>
+											<xs:element name="double" type="doubleConfig"/>
+											<xs:element name="string" type="stringConfig"/>
+											<xs:element name="path" type="pathConfig"/>
+										</xs:choice>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>
