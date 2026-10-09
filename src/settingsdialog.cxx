@@ -1,39 +1,26 @@
+#include <exception>
 #include <filesystem>
-#include <qcheckbox.h>
-#include <qobject.h>
-#include <qwidget.h>
-#include <stdexcept>
+#include <iomanip>
 #include <string>
+#include <vector>
 
 #include <QCheckBox>
 #include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
+#include <QStandardPaths>
 
 #include <pugixml.hpp>
 
 #include "logging.hxx"
+#include "pathentry.hxx"
 #include "settingsdialog.hxx"
 #include "utils.hxx"
-
-enum class SettingType {
-	Bool = 0,
-	Int = 1,
-	Double = 2,
-	String = 3,
-	Path = 4,
-	PathList = 5,
-};
-
-enum class SettingLevel {
-	Basic = 0,
-	Advanced = 1,
-	Developer = 2,
-};
 
 static std::map<std::string, SettingType> typeMapping = {
 	{"bool", SettingType::Bool},
@@ -41,7 +28,6 @@ static std::map<std::string, SettingType> typeMapping = {
 	{"double", SettingType::Double},
 	{"string", SettingType::String},
 	{"path", SettingType::Path},
-	{"pathlist", SettingType::PathList},
 };
 
 static std::map<std::string, SettingLevel> levelMapping = {
@@ -50,133 +36,323 @@ static std::map<std::string, SettingLevel> levelMapping = {
 	{"developer", SettingLevel::Developer},
 };
 
-class SettingBase: public QObject {
-	public:
-		friend class SettingsPage;
-		
-		SettingBase(const std::string& name, const std::string& label, SettingType type, SettingLevel level, pugi::xml_node node):
-			_name(name), _label(label), _type(type), _level(level), _node(node)
-		{
-		}
+template<typename T>
+struct SettingTraits;
 
-
-		// Returns this setting's name, which is used by the settings dialog to identify this setting.
-		// It should be unique within the application and should only contain letters, numbers, and hyphens to separate words.
-		// Examples: username, video-quality, addon-search-paths
-		const std::string& name() const { return _name; }
-
-		// Returns this setting's label, which is displayed to the user and does not have to be unique within the application.
-		// Examples: Username, Video quality, Addon search paths
-		const std::string& label() const { return _label; }
-
-		const SettingType type() { return _type; }
-
-		const SettingLevel level() { return _level; }
-		
-		const pugi::xml_node node() { return _node; }
-
-		virtual QWidget* createWidget() = 0;
-
-
-	protected:
-		std::string _name = "";
-		std::string _label = "";
-		SettingType _type;
-		SettingLevel _level;
-		pugi::xml_node _node;
+template<>
+struct SettingTraits<bool> {
+	using Widget = QCheckBox;
+	struct Config {
+		SettingType type = SettingType::Bool;
+		const std::string typeName = "bool";
+	};
 };
+
+template<>
+struct SettingTraits<int> {
+	using Widget = QSpinBox;
+	struct Config {
+		SettingType type = SettingType::Int;
+		const std::string typeName = "int";
+		int min = 0;
+		int max = 100;
+		int step = 1;
+	};
+};
+
+template<>
+struct SettingTraits<double> {
+	using Widget = QDoubleSpinBox;
+	struct Config {
+		SettingType type = SettingType::Double;
+		const std::string typeName = "double";
+		double min = 0;
+		double max = 100;
+		double step = 0.1;
+	};
+};
+
+template<>
+struct SettingTraits<std::string> {
+	using Widget = QLineEdit;
+	struct Config {
+		SettingType type = SettingType::String;
+		const std::string typeName = "std::string";
+	};
+};
+
+template<>
+struct SettingTraits<std::filesystem::path> {
+	using Widget = easyqt::PathEntry;
+	struct Config {
+		SettingType type = SettingType::Path;
+		const std::string typeName = "std::filesystem::path";
+		easyqt::PathEntry::PathType pathType = easyqt::PathEntry::PathType::File;
+	};
+};
+
+bool parseValue(pugi::xml_node valueNode, const std::string& settingName, bool defaultValue) {
+	if (valueNode) {
+		const std::string& valueString = valueNode.text().get();
+		if (valueString == "true") {
+			defaultValue = true;
+		} else if (valueString == "false") {
+			defaultValue = false;
+		} else {
+			LOG(ERROR, "Invalid boolean value " << std::quoted(valueString) << " for setting " << std::quoted(settingName));
+		}
+	}
+	return defaultValue;
+}
+
+int parseValue(pugi::xml_node valueNode, const std::string& settingName, int defaultValue) {
+	if (valueNode) {
+		const std::string& valueString = valueNode.text().get();
+		try {
+			defaultValue = std::stoi(valueString);
+		} catch (const std::exception& e) {
+			LOG(ERROR, "Invalid integer value " << std::quoted(valueString) << " for setting " << std::quoted(settingName));
+		}
+	}
+	return defaultValue;
+}
+
+double parseValue(pugi::xml_node valueNode, const std::string& settingName, double defaultValue) {
+	if (valueNode) {
+		const std::string& valueString = valueNode.text().get();
+		try {
+			defaultValue = std::stod(valueString);
+		} catch (const std::exception& e) {
+			LOG(ERROR, "Invalid double value " << std::quoted(valueString) << " for setting " << std::quoted(settingName));
+		}
+	}
+	return defaultValue;
+}
 
 template<typename DataType>
 class Setting: public SettingBase {
 	public:
+		using Traits = SettingTraits<DataType>;
+		friend class SettingsDialog;
 		friend class SettingsPage;
 
-		Setting(const std::string& name, const std::string& label, SettingType type, SettingLevel level, const DataType& defaultValue, pugi::xml_node node):
-			SettingBase(name, label, type, level, node), _defaultValue(defaultValue), _currentValue(defaultValue), _savedValue(_defaultValue)
+		Setting(const std::string& name, const std::string& label, SettingLevel level, pugi::xml_node node):
+			SettingBase(name, label, level, node)
 		{
 		}
 
 		// Returns true if the setting is set to the default value
-		bool isDefault() const {
+		virtual bool isDefault() const override{
 			return _currentValue == _defaultValue;
 		}
 
-		// Returns true if the setting has been modified by the user and has not been saved yet
-		bool isModified() const {
+		//s Returns true if the setting has been modified by the user and has not been saved yet
+		virtual bool isModified() const override {
 			return _currentValue != _savedValue;
 		}
 
 		// Returns true if the setting has been saved.
-		bool isSaved() const {
+		virtual bool isSaved() const override {
 			return _currentValue == _savedValue;
-		}
-
-		void setSavedValue(DataType value) {
-			_savedValue = value;
 		}
 
 		DataType currentValue() const { return _currentValue; }
 		DataType defaultValue() const { return _defaultValue; }
 		DataType savedValue() const { return _savedValue; }
+		virtual std::string savedValueString() const override;
 
-		virtual QWidget* createWidget() override {
-			LOG(WARNING, "Cannot create setting widget for type '" << easyqt::typeName<DataType>() << "': not implemented");
+		const SettingType type() const override { return _config.type; }
+		const std::string& typeName() const override { return _config.typeName; }
+
+	public slots:
+		void widgetValueChanged(DataType value) {
+			_currentValue = value;
+
+			emit changed(_name);
+		};
+
+	protected:
+		virtual Traits::Widget* createWidget() override {
+			LOG(WARNING, "Cannot create setting widget for type " << std::quoted(easyqt::typeName<DataType>()) << ": not implemented");
 			return nullptr;
 		};
 
-	signals:
-		void changed(const std::string& name);
+		virtual void parseValues(pugi::xml_node userValueNode) override {
+			LOG(WARNING, "Cannot parse config values for setting of type " << std::quoted(easyqt::typeName<DataType>()) << ": not implemented");
+		}
 
-	protected:
+		virtual void applyValue() override {
+			LOG(WARNING, "Cannot apply new value to setting widget for type " << std::quoted(easyqt::typeName<DataType>()) << ": not implemented");
+		}
+
+		void saveValue() override { _savedValue = _currentValue; }
+
+		void setSavedValue(DataType value) {
+			_currentValue = _savedValue = value;
+		}
+		void resetToSavedValue() override {
+			_currentValue = _savedValue;
+			applyValue();
+		}
+		void resetToDefaultValue() override {
+			_currentValue = _defaultValue;
+			applyValue();
+		}
+	
+	private:
 		DataType _defaultValue, _currentValue, _savedValue;
+		Traits::Widget* _widget;
+		Traits::Config _config;
 };
 
 template<>
-QWidget* Setting<bool>::createWidget() {
-	QCheckBox* widget = new QCheckBox();
-	widget->setChecked(_savedValue);
+QCheckBox* Setting<bool>::createWidget() {
+	auto _widget = new QCheckBox();
+	_widget->setChecked(_savedValue);
+	connect(_widget, &QCheckBox::toggled, this, &Setting::widgetValueChanged);
 
-	return widget;
+	return _widget;
 }
 
 template<>
-QWidget* Setting<int>::createWidget() {
-	QSpinBox* widget = new QSpinBox();
-	widget->setValue(_savedValue);
-
-	return widget;
+void Setting<bool>::parseValues(pugi::xml_node userValueNode) {
+	_defaultValue = parseValue(_node.child("default"), _name, _defaultValue);
+	_currentValue = _savedValue = parseValue(userValueNode, _name, _defaultValue);
 }
 
 template<>
-QWidget* Setting<double>::createWidget() {
-	QDoubleSpinBox* widget = new QDoubleSpinBox();
-	widget->setValue(_savedValue);
-
-	return widget;
+void Setting<bool>::applyValue() {
+	_widget->setChecked(_currentValue);
 }
 
 template<>
-QWidget* Setting<std::string>::createWidget() {
-	QLineEdit* widget = new QLineEdit();
-	widget->setText(_savedValue.c_str());
-
-	return widget;
+std::string Setting<bool>::savedValueString() const {
+	return _savedValue ? "true" : "false";
 }
 
 template<>
-QWidget* Setting<std::filesystem::path>::createWidget() {
-	QPushButton* widget = new QPushButton();
-	widget->setText(_savedValue.c_str());
+QSpinBox* Setting<int>::createWidget() {
+	_widget = new QSpinBox();
+	_widget->setValue(_savedValue);
+	_widget->setRange(_config.min, _config.max);
+	_widget->setSingleStep(_config.step);
+	connect(_widget, &QSpinBox::valueChanged, this, &Setting::widgetValueChanged);
 
-	return widget;
+	return _widget;
 }
 
 template<>
-QWidget* Setting<std::vector<std::filesystem::path> >::createWidget() {
-	QListWidget* widget = new QListWidget();
-	//widget->setText(_savedValue.c_str());
+void Setting<int>::parseValues(pugi::xml_node userValueNode) {
+	_defaultValue = _currentValue = _savedValue = parseValue(_node.child("default"), _name, _defaultValue);
+	_currentValue = _savedValue = parseValue(userValueNode, _name, _defaultValue);
+	_config.min = parseValue(_node.child("min"), _name, _config.min);
+	_config.max = parseValue(_node.child("max"), _name, _config.max);
+	_config.step = parseValue(_node.child("step"), _name, _config.step);
+}
 
-	return widget;
+template<>
+std::string Setting<int>::savedValueString() const {
+	return std::to_string(_savedValue);
+}
+
+template<>
+void Setting<int>::applyValue() {
+	_widget->setValue(_currentValue);
+}
+
+template<>
+QDoubleSpinBox* Setting<double>::createWidget() {
+	_widget = new QDoubleSpinBox();
+	_widget->setValue(_savedValue);
+	_widget->setRange(_config.min, _config.max);
+	_widget->setSingleStep(_config.step);
+	connect(_widget, &QDoubleSpinBox::valueChanged, this, &Setting::widgetValueChanged);
+
+	return _widget;
+}
+
+template<>
+void Setting<double>::parseValues(pugi::xml_node userValueNode) {
+	_defaultValue = _currentValue = _savedValue = parseValue(_node.child("default"), _name, _defaultValue);
+	_currentValue = _savedValue = parseValue(userValueNode, _name, _defaultValue);
+	_config.min = parseValue(_node.child("min"), _name, _config.min);
+	_config.max = parseValue(_node.child("max"), _name, _config.max);
+	_config.step = parseValue(_node.child("step"), _name, _config.step);
+}
+
+template<>
+std::string Setting<double>::savedValueString() const {
+	return std::to_string(_savedValue);
+}
+
+template<>
+void Setting<double>::applyValue() {
+	_widget->setValue(_currentValue);
+}
+
+template<>
+QLineEdit* Setting<std::string>::createWidget() {
+	_widget = new QLineEdit();
+	_widget->setText(_savedValue.c_str());
+	connect(_widget, &QLineEdit::textChanged, [this](const QString& text) {
+		this->widgetValueChanged(text.toStdString());
+	});
+
+	return _widget;
+}
+
+template<>
+void Setting<std::string>::parseValues(pugi::xml_node userValueNode) {
+	_defaultValue = _currentValue = _savedValue = _node.child("default").text().get();
+	if (userValueNode) {
+		_currentValue = _savedValue = userValueNode.text().get();
+	}
+}
+
+template<>
+std::string Setting<std::string>::savedValueString() const {
+	return _savedValue;
+}
+
+template<>
+void Setting<std::string>::applyValue() {
+	_widget->setText(_currentValue.c_str());
+}
+
+template<>
+easyqt::PathEntry* Setting<std::filesystem::path>::createWidget() {
+	_widget = new easyqt::PathEntry();
+	_widget->setPath(_savedValue);
+	_widget->setPathType(_config.pathType);
+	connect(_widget, &easyqt::PathEntry::pathChanged, this, &Setting::widgetValueChanged);
+
+	return _widget;
+}
+
+template<>
+void Setting<std::filesystem::path>::parseValues(pugi::xml_node userValueNode) {
+	_defaultValue = _currentValue = _savedValue = _node.child("default").text().get();
+	if (userValueNode) {
+		_currentValue = _savedValue = userValueNode.text().get();
+	}
+	const std::string& pathTypeString = _node.child("path-type").text().get();
+	if (pathTypeString == "file") {
+		_config.pathType = easyqt::PathEntry::PathType::File;
+	} else if (pathTypeString == "directory") {
+		_config.pathType  = easyqt::PathEntry::PathType::Directory;
+	} else {
+		LOG(WARN, "Invalid or unspecified path type for setting " << std::quoted(_name));
+	}
+}
+
+template<>
+std::string Setting<std::filesystem::path>::savedValueString() const {
+	return _savedValue.string();
+}
+
+template<>
+void Setting<std::filesystem::path>::applyValue() {
+	_widget->setPath(_currentValue);
 }
 
 class SettingsPage: public QScrollArea {
@@ -195,24 +371,49 @@ class SettingsPage: public QScrollArea {
 		const std::string& label() const { return _label; }
 
 
-		template<typename ValueType>
-		void addSetting(
+		SettingBase* addSetting(
 			const std::string& name, const std::string& label,
-			SettingType type, SettingLevel level, ValueType defaultValue, pugi::xml_node node
+			SettingType type, SettingLevel level, pugi::xml_node configNode,
+			pugi::xml_node userValueNode
 		) {
-			std::shared_ptr<Setting<ValueType> > setting = std::make_shared<Setting<ValueType> >(name, label, type, level, defaultValue, node);
+			SettingBase* setting;
+			switch (type) {
+				case SettingType::Bool:
+					setting = new Setting<bool>(name, label, level, configNode);
+					break;
+
+				case SettingType::Int:
+					setting = new Setting<int>(name, label, level, configNode);
+					break;
+
+				case SettingType::Double:
+					setting = new Setting<double>(name, label, level, configNode);
+					break;
+
+				case SettingType::String:
+					setting = new Setting<std::string>(name, label, level, configNode);
+					break;
+
+				case SettingType::Path:
+					setting = new Setting<std::filesystem::path>(name, label, level, configNode);
+					break;
+			}
+
+			setting->parseValues(userValueNode);
 			_settings.push_back(setting);
-			_lastrow += 1;
-			_layout.addWidget(new QLabel(label.c_str()), _lastrow, 0, Qt::AlignTop);
-			_layout.addWidget(setting->createWidget(), _lastrow, 1, Qt::AlignTop);
+			_lastRow += 1;
+			_layout.addWidget(new QLabel(label.c_str()), _lastRow, 0);
+			_layout.addWidget(setting->createWidget(), _lastRow, 1);
+
+			return setting;
 		}
 	
 	private:
 		std::string _name = "";
 		std::string _label = "";
 		QGridLayout _layout;
-		int _lastrow = -1;
-		std::vector< std::shared_ptr<QObject> > _settings;
+		int _lastRow = -1;
+		std::vector<SettingBase*> _settings;
 };
 
 namespace easyqt {
@@ -228,12 +429,12 @@ namespace easyqt {
 
 		_pageList = new QListWidget();
 		_pageList->setStyleSheet("QListWidget::item { padding: 6px 12px; }");
+		_pageList->setSelectionMode(QAbstractItemView::SingleSelection);
 		_settingsLayout->addWidget(_pageList);
 		QObject::connect(_pageList, &QListWidget::currentItemChanged, this, &SettingsDialog::onPageSelected);
 
 		_pageContainer = new QStackedWidget();
 		_settingsLayout->addWidget(_pageContainer, 1);
-
 
 		_buttonBox = new QDialogButtonBox(
 			QDialogButtonBox::RestoreDefaults |
@@ -242,12 +443,12 @@ namespace easyqt {
 			QDialogButtonBox::Close |
 			QDialogButtonBox::Ok
 		);
-		_buttonBox->button(QDialogButtonBox::RestoreDefaults)->setEnabled(false);
-		_buttonBox->button(QDialogButtonBox::Reset)->setEnabled(false);
-		_buttonBox->button(QDialogButtonBox::Apply)->setEnabled(false);
-		_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 		_layout->addWidget(_buttonBox);
 		QObject::connect(_buttonBox, &QDialogButtonBox::clicked, this, &SettingsDialog::onClicked);
+
+		_path = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation).toStdString();
+		_path /= "settings.xml";
+		std::filesystem::create_directory(_path.parent_path());
 	}
 
 	void SettingsDialog::onPageSelected(QListWidgetItem* current, QListWidgetItem* previous) {
@@ -263,22 +464,131 @@ namespace easyqt {
 
 	void SettingsDialog::onClicked(QAbstractButton* widget) {
 		QDialogButtonBox::StandardButton role = _buttonBox->standardButton(widget);
-		if (role == QDialogButtonBox::Close) {
+		if (role == QDialogButtonBox::Ok) {
+			applySettings();
+			writeSettingsToFile();
 			close();
+		} else if (role == QDialogButtonBox::Apply) {
+			applySettings();
+			writeSettingsToFile();
+		} else if (role == QDialogButtonBox::Reset) {
+			resetSettingsToSaved();
+		} else if (role == QDialogButtonBox::RestoreDefaults) {
+			resetSettingsToDefault();
+		}
+		if (role == QDialogButtonBox::Close) {
+			if (_numUnsavedSettings > 0) {
+				QMessageBox::StandardButton button = QMessageBox::question(
+					this,
+					"Discard setting changes?",
+					"Close the settings dialog without saving your changes ?",
+					QMessageBox::Yes | QMessageBox::No,
+					QMessageBox::No
+				);
+				if (button == QMessageBox::Yes) {
+					resetSettingsToSaved();
+				} else {
+					return;
+				}
+			}
+			close();
+		}
+		updateButtonStates();
+	}
+
+	void SettingsDialog::onSettingChanged(const std::string& settingName) {
+		updateButtonStates();
+	}
+
+	void SettingsDialog::applySettings() {
+		for (auto& setting: _settings) {
+			setting.second->saveValue();
 		}
 	}
 
-	void SettingsDialog::loadFromFile(std::filesystem::path file) {
-		std::string path = getResourcePath(file);
-		pugi::xml_document xml;
-		pugi::xml_parse_result result = xml.load_file(path.c_str());
+	void SettingsDialog::resetSettingsToDefault() {
+		for (auto& setting: _settings) {
+			setting.second->resetToDefaultValue();
+		}
+	}
+
+	void SettingsDialog::resetSettingsToSaved() {
+		for (auto& setting: _settings) {
+			setting.second->resetToSavedValue();
+		}
+	}
+
+	void SettingsDialog::updateButtonStates() {
+		_numNonDefaultSettings = 0;
+		_numUnsavedSettings = 0;
+		for (auto& pair: _settings) {
+			auto& s = pair.second;
+			if (!s->isDefault()) {
+				_numNonDefaultSettings++;
+			}
+			if (!s->isSaved()) {
+				_numUnsavedSettings++;
+			}
+		}
+		if (_numUnsavedSettings > 0) {
+			_buttonBox->button(QDialogButtonBox::Reset)->setEnabled(true);
+			_buttonBox->button(QDialogButtonBox::Apply)->setEnabled(true);
+			_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
+		} else {
+			_buttonBox->button(QDialogButtonBox::Reset)->setEnabled(false);
+			_buttonBox->button(QDialogButtonBox::Apply)->setEnabled(false);
+			_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+		}
+		if (_numNonDefaultSettings > 0) {
+			_buttonBox->button(QDialogButtonBox::RestoreDefaults)->setEnabled(true);
+		} else {
+			_buttonBox->button(QDialogButtonBox::RestoreDefaults)->setEnabled(false);
+		}
+	}
+
+	void SettingsDialog::writeSettingsToFile() {
+		pugi::xml_document document;
+
+		pugi::xml_node settingsNode = document.append_child("settings");
+
+		for (const auto& [name, setting]: _settings) {
+			pugi::xml_node settingNode = settingsNode.append_child("setting");
+			settingNode.append_child("name").text().set(name.c_str());
+			settingNode.append_child("value").text().set(setting->savedValueString().c_str());
+		}
+
+		if (!document.save_file(_path.c_str())) {
+			LOG(ERROR, "Failed saving user settings");
+		} else {
+			LOG(DEBUG, "User settings saved to " << std::quoted(_path.string()));
+		}
+	}
+	
+	void SettingsDialog::rebuild() {
+		_pages.clear();
+		_settings.clear();
+		pugi::xml_parse_result result = _settingsStorage.load_file(_factoryPath.c_str());
 		if (!result) {
-			LOG(ERROR, "Failed loading settings dialog file '" << file << "': " << result.description() << " !");
+			LOG(ERROR, "Failed loading settings definition file " << std::quoted(_factoryPath.string()) << ": " << result.description() << " !");
 			return;
 		}
+		pugi::xml_document userSettingsDocument;
+		result = userSettingsDocument.load_file(_path.c_str());
+		if (!result) {
+			LOG(ERROR, "Failed loading user settings file " << std::quoted(_path.string()) << ": " << result.description() << " !");
+		}
+
+		std::map<std::string, pugi::xml_node> userSettings;
+		for (pugi::xml_node settingNode: userSettingsDocument.child("settings").children("setting")) {
+			const std::string& settingName = settingNode.child_value("name");
+			if (settingName.empty()) {
+				LOG(WARN, "Skipping user setting with empty or missing name");
+			}
+			userSettings[settingName] = settingNode.child("value");
+		}
 		
-		pugi::xml_node settingsNode = xml.child("settings");
-		for (pugi::xml_node categoryNode: settingsNode.children("category")) {
+		pugi::xml_node settings = _settingsStorage.child("settings");
+		for (pugi::xml_node categoryNode: settings.children("category")) {
 			std::string name = categoryNode.child_value("name");
 			std::string label = categoryNode.child_value("label");
 
@@ -303,28 +613,69 @@ namespace easyqt {
 			for (pugi::xml_node settingNode: categoryNode.children("setting")) {
 				std::string settingName = settingNode.child_value("name");
 				std::string settingLabel = settingNode.child_value("label");
-				if (settingName.empty()) {
-					LOG(ERROR, "Cannot add setting without name");
-					continue;
-				}
-
-				if (settingLabel.empty()) {
-					LOG(WARN, "Adding setting with empty label, using name instead");
-					settingLabel = settingName;
-				} else {
-					LOG(DEBUG, "Adding setting with label " << std::quoted(settingLabel));
-				}
-
-				std::string typeString = settingNode.child_value("type");
 				std::string levelString = settingNode.child_value("level");
 
+				pugi::xml_node configNode;
+				bool multipleconfigNodesWarningLogged = false;
+				std::string unknownNode;
+
+				for (pugi::xml_node child: settingNode.children()) {
+					const std::string name = child.name();
+
+					if (name == "name") {
+						settingName = child.text().as_string();
+						continue;
+					} else if (name == "label") {
+						settingLabel = child.text().as_string();
+						continue;
+					} else if (name == "level") {
+						levelString = child.text().as_string();
+					} else if (typeMapping.contains(name)) {
+						if (configNode) {
+							if (multipleconfigNodesWarningLogged) {
+								LOG(WARN, "Setting " << std::quoted(settingName) << " has multiple type nodes");
+								multipleconfigNodesWarningLogged = true;
+							}
+							continue;
+						}
+
+						configNode = child;
+					} else if (unknownNode.empty()) {
+						unknownNode = name;
+					}
+				}
+
+				if (!configNode) {
+					if (!unknownNode.empty()) {
+						LOG(ERROR, "Cannot add setting " << std::quoted(settingName) << " with unknown type " << std::quoted(unknownNode));
+					} else {
+						LOG(ERROR, "Cannot add setting " << std::quoted(settingName) << " with no type specified");
+					}
+					continue;
+				}
+				const std::string typeString = configNode.name();
 				SettingType type;
 				try {
 					type = typeMapping.at(typeString);
-				} catch (std::out_of_range& e) {
+				} catch (const std::out_of_range&) {
 					LOG(ERROR, "Cannot add setting with unknown type " << std::quoted(typeString));
 					continue;
 				}
+			
+				if (settingName.empty()) {
+					LOG(ERROR, "Cannot add setting without name");
+					continue;
+				} else if (_settings.contains(settingName)) {
+					LOG(ERROR, "Setting with name " << std::quoted(settingName) << " already present, cannot add duplicate name");
+				}
+
+				if (settingLabel.empty()) {
+					LOG(WARN, "Adding setting with empty label, using name " << std::quoted(settingName) << " instead");
+					settingLabel = settingName;
+				} else {
+					LOG(DEBUG, "Adding setting with name " << std::quoted(settingName) << " label " << std::quoted(settingLabel));
+				}
+
 				SettingLevel level;
 				try {
 					level = levelMapping.at(levelString);
@@ -333,92 +684,78 @@ namespace easyqt {
 					level = SettingLevel::Basic;
 				}
 
-				pugi::xml_node defaultValueNode = settingNode.child("default");
-				bool hasDefaultValue = !defaultValueNode.empty();
+				pugi::xml_node defaultValueNode = configNode.child("default");
+				bool hasDefaultValue = defaultValueNode;
 				if (!hasDefaultValue) {
-					LOG(ERROR, "Cannot add setting without default value");
+					LOG(ERROR, "Cannot add setting " << std::quoted(settingName) << " without default value");
 					continue;
 				}
-				std::string defaultValueString = defaultValueNode.text().as_string();
-				
 
-				switch (type) {
-					case SettingType::Bool: {
-						bool defaultValue = false;
-						if (defaultValueString == "true" || defaultValueString == "1") {
-							defaultValue = true;
-						} else if (defaultValueString == "false" || defaultValueString == "0") {
-							defaultValue = false;
-						} else {
-							LOG(ERROR, "Invalid default boolean value " << std::quoted(defaultValueString));
-						}
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-
-					case SettingType::Int: {
-						int defaultValue = 0;
-						try {
-							defaultValue = std::stoi(defaultValueString);
-						}
-						catch (const std::invalid_argument& e) {
-							LOG(ERROR, "Invalid default integer value " << std::quoted(defaultValueString));
-						}
-						catch (const std::out_of_range& e) {
-							LOG(ERROR, "Default integer value out of range " << std::quoted(defaultValueString));
-						}
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-
-					case SettingType::Double: {
-						double defaultValue = 0.0;
-						try {
-							defaultValue = std::stod(defaultValueString);
-						}
-						catch (const std::invalid_argument& e) {
-							LOG(ERROR, "Invalid default double value " << std::quoted(defaultValueString));
-						}
-						catch (const std::out_of_range& e) {
-							LOG(ERROR, "Default double value out of range " << std::quoted(defaultValueString));
-						}
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-
-					case SettingType::String: {
-						std::string defaultValue(defaultValueString);
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-
-					case SettingType::Path: {
-						std::filesystem::path defaultValue(defaultValueString);
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-
-					case SettingType::PathList: {
-						std::vector<std::filesystem::path> defaultValue;
-						std::stringstream splitPaths(defaultValueString);
-						std::string path;
-						while (std::getline(splitPaths, path, ';')) {
-							if (!path.empty()) {
-								defaultValue.push_back(path);
-							}
-						}
-						page->addSetting(settingName, settingLabel, type, level, defaultValue, settingNode);
-						break;
-					}
-					default: {
-						LOG(ERROR, "Unsupported setting type '" << typeString);
-					}
+				pugi::xml_node userValueNode;
+				if (userSettings.contains(settingName)) {
+					userValueNode = userSettings[settingName];
 				}
+				_settings[settingName] = page->addSetting(settingName, settingLabel, type, level, configNode, userValueNode);
+				QObject::connect(_settings[settingName], &SettingBase::changed, this, &SettingsDialog::onSettingChanged);
 			}
 		}
 		
-		_pageList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		if (_pageList->count() > 0) {
+		    _pageList->setCurrentRow(0);
+		}
+
 		const int width = _pageList->sizeHintForColumn(0) + 2 * _pageList->frameWidth();
 		_pageList->setFixedWidth(width);
+		updateButtonStates();
 	}
+
+	template<typename DataType>
+	DataType SettingsDialog::settingValue(const std::string& settingName) const {
+		const auto settingIt = _settings.find(settingName);
+		if (settingIt == _settings.end()) {
+			throw std::out_of_range("No setting with name \"" + settingName + "\" found");
+		}
+		const auto* setting = dynamic_cast<const Setting<DataType>*>(settingIt->second);
+
+		if (!setting) {
+			throw std::invalid_argument(
+				"Cannot get value as \"" + easyqt::typeName<DataType>() + " from setting \"" +
+				settingName + "\" with type \"" + settingIt->second->typeName() + "\""
+			);
+		}
+
+		return setting->savedValue();
+	}
+
+	template<typename DataType>
+	void SettingsDialog::setSettingValue(const std::string& settingName, const DataType& value) {
+		const auto settingIt = _settings.find(settingName);
+		if (settingIt == _settings.end()) {
+			throw std::out_of_range("No setting with name \"" + settingName + "\" found");
+		}
+		const auto* setting = dynamic_cast<Setting<DataType>*>(settingIt->second);
+
+		if (!setting) {
+			throw std::invalid_argument(
+				"Cannot set value of type \"" + easyqt::typeName<DataType>() + " for setting \"" +
+				settingName + "\" with type \"" + settingIt->second->typeName() + "\""
+			);
+		}
+
+		setting->setSavedValue(value);
+	}
+	template
+	bool SettingsDialog::settingValue<bool>(const std::string&) const;
+
+	template
+	int SettingsDialog::settingValue<int>(const std::string&) const;
+
+	template
+	double SettingsDialog::settingValue<double>(const std::string&) const;
+
+	template
+	std::string SettingsDialog::settingValue<std::string>(const std::string&) const;
+
+	template
+	std::filesystem::path SettingsDialog::settingValue<std::filesystem::path>(const std::string&) const;
 }
