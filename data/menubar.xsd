@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="menubar">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="menu" type="menuType" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="menuType">
+        <xs:sequence>
+            <xs:element name="label" type="xs:string"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="menu" type="menuType" minOccurs="1"/>
+                <xs:element name="menuitem" type="menuItemType" minOccurs="1"/>
+            </xs:choice>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="menuItemType">
+        <xs:sequence>
+            <xs:element name="label" type="xs:string"/>
+            <xs:element name="icon" type="xs:token" minOccurs="0"/>
+            <xs:element name="command" type="xs:token"/>
+            <xs:element name="shortcut" type="xs:token" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+</xs:schema>

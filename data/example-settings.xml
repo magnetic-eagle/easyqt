@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?xml-model href="https://raw.githubusercontent.com/OWNER/easyqt/v1.2.0/data/settings.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<?xml-model href="/usr/share/xml/easyqt/settings.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <settings>
+        <category>
+                <name>general</name>
+                <label>General</label>
+                <setting>
+                        <name>example</name>
+                        <label>Example</label>
+                        <level>basic</level>
+                        <int>
+                                <default>3</default>
+                                <min>0</min>
+                                <max>15</max>
+                                <step>3</step>
+                        </int>
+                </setting>
+        </category>
 </settings>
