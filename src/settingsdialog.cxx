@@ -133,7 +133,7 @@ template<typename DataType>
 class Setting: public SettingBase {
 	public:
 		using Traits = SettingTraits<DataType>;
-		friend class SettingsDialog;
+		friend class easyqt::SettingsDialog;
 		friend class SettingsPage;
 
 		Setting(const std::string& name, const std::string& label, SettingLevel level, pugi::xml_node node):
@@ -733,7 +733,7 @@ namespace easyqt {
 		if (settingIt == _settings.end()) {
 			throw std::out_of_range("No setting with name \"" + settingName + "\" found");
 		}
-		const auto* setting = dynamic_cast<Setting<DataType>*>(settingIt->second);
+		auto* setting = dynamic_cast<Setting<DataType>*>(settingIt->second);
 
 		if (!setting) {
 			throw std::invalid_argument(
@@ -743,19 +743,31 @@ namespace easyqt {
 		}
 
 		setting->setSavedValue(value);
+		writeSettingsToFile();
 	}
+
 	template
 	bool SettingsDialog::settingValue<bool>(const std::string&) const;
+	template
+	void SettingsDialog::setSettingValue(const std::string& settingName, const bool& value);
 
 	template
 	int SettingsDialog::settingValue<int>(const std::string&) const;
+	template
+	void SettingsDialog::setSettingValue(const std::string& settingName, const int& value);
 
 	template
 	double SettingsDialog::settingValue<double>(const std::string&) const;
+	template
+	void SettingsDialog::setSettingValue(const std::string& settingName, const double& value);
 
 	template
 	std::string SettingsDialog::settingValue<std::string>(const std::string&) const;
+	template
+	void SettingsDialog::setSettingValue(const std::string& settingName, const std::string& value);
 
 	template
 	std::filesystem::path SettingsDialog::settingValue<std::filesystem::path>(const std::string&) const;
+	template
+	void SettingsDialog::setSettingValue(const std::string& settingName, const std::filesystem::path& value);
 }
