@@ -9,6 +9,7 @@ add_library(easyqt
 	pathentry.cxx
 	scrollarea.cxx
 	settingsdialog.cxx
+	spinner.cxx
 	uiloader.cxx
 	utils.cxx
 )

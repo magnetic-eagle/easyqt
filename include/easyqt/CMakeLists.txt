@@ -7,6 +7,7 @@ set(MOC_HEADERS
 	pathentry.hxx
 	scrollarea.hxx
 	settingsdialog.hxx
+	spinner.hxx
 	uiloader.hxx
 )
 list(TRANSFORM MOC_HEADERS PREPEND "${CMAKE_CURRENT_LIST_DIR}/")
