@@ -7,7 +7,7 @@
 #include <QDir>
 
 namespace easyqt {
-	std::string getResourcePath(std::string path);
+	std::filesystem::path getResourcePath(std::string path);
 	std::string strftime(std::time_t time, const std::string& format);
 	std::string strftime(std::time_t time, const char* format);
 
@@ -35,6 +35,8 @@ namespace easyqt {
 
 		return std::string(function.substr(start, size));
 	}
+
+	std::string formatFileSize(std::uintmax_t size);
 }
 
 namespace std {
