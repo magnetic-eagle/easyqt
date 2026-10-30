@@ -42,21 +42,4 @@ namespace easyqt {
 	}
 }
 
-namespace std {
-	string tolower(const string& s) {
-		string lower;
-		for(const char& c: s) {
-			lower += tolower(c);
-		}
-		return lower;
-	}
-	string toupper(const string& s) {
-		string upper;
-		for(const char& c: s) {
-			upper += std::toupper(c);
-		}
-		return upper;
-	}
-}
-
 
