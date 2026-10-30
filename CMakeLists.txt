@@ -28,7 +28,7 @@ set(CMAKE_EXE_LINKER_FLAGS_DEBUGASAN
 option(ENABLE_TESTING "Whether to build tests" ON)
 
 find_package(PkgConfig)
-find_package(Qt6 COMPONENTS Widgets UiTools REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets UiTools REQUIRED)
 add_subdirectory(3rdparty)
 
 add_subdirectory(data)
@@ -49,6 +49,7 @@ ADD_CUSTOM_TARGET(
 )
 
 configure_file(easyqt.pc.in easyqt.pc @ONLY)
+
 install(
 	FILES ${CMAKE_CURRENT_BINARY_DIR}/easyqt.pc
 	DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig
@@ -56,5 +57,9 @@ install(
 install(
 	DIRECTORY include/easyqt/
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/easyqt
+)
+install(
+	FILES easyqt-config.cmake
+ 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/easyqt
 )
 

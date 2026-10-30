@@ -7,6 +7,6 @@ Name: @PROJECT_NAME@
 Description: @PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
 
-Requires:
-Libs: -L${libdir} -leasyqt
+Requires: Qt6Widgets, Qt6UiTools, pugixml
+Libs: -L${libdir} -leasyqt -lQt6Widgets -lQt6UiTools -lpugixml
 Cflags: -I${includedir}
