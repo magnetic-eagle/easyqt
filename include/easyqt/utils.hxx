@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <string>
 
 #include <QDir>
@@ -131,6 +132,19 @@ namespace std {
 			return static_cast<char>(std::toupper(c));
 		});
 		return result;
+	}
+
+	namespace filesystem {
+
+		/**
+		* Finds the longest common base path among a vector of paths.
+		* It compares components (e.g., "a", "b") rather than raw strings 
+		* to ensure that "/a/bc" and "/a/b" do not share a common prefix of "/a/b".
+		* 
+		* @param paths A vector of paths to evaluate.
+		* @return The longest common prefix path.
+		*/
+		std::filesystem::path longest_common_basepath(const std::vector<std::filesystem::path>& paths);
 	}
 }
 
