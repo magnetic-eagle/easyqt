@@ -29,6 +29,21 @@ option(ENABLE_TESTING "Whether to build tests" ON)
 
 find_package(PkgConfig)
 find_package(Qt6 COMPONENTS Core Widgets UiTools REQUIRED)
+
+set(SYSTEM_PUGIXML OFF)
+
+if (NOT TARGET pugixml::pugixml)
+	if (PkgConfig_FOUND)
+		pkg_check_modules(PugiXML IMPORTED_TARGET pugixml)
+
+		if(PugiXML_FOUND)
+			set(SYSTEM_PUGIXML ON)
+			add_library(pugixml::pugixml INTERFACE IMPORTED GLOBAL)
+			target_link_libraries(pugixml::pugixml INTERFACE PkgConfig::PugiXML)
+		endif()
+	endif()
+endif()
+
 add_subdirectory(3rdparty)
 
 add_subdirectory(data)
